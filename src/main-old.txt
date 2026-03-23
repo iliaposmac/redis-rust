@@ -1,0 +1,546 @@
+use std::cell::{Cell, Ref, RefCell};
+use std::error::Error;
+use std::fmt::Debug;
+use std::ops::Range;
+use std::rc::{Rc, Weak};
+use std::sync::RwLock;
+use std::thread::{Builder, spawn};
+use std::{ptr, vec};
+
+mod redis;
+
+struct Holder<T> {
+    v: T,
+}
+
+fn make_holder<T>(v: T) -> Holder<T> {
+    Holder { v }
+}
+
+impl<T> Holder<T> {
+    fn get(&self) -> &T {
+        &self.v
+    }
+
+    fn set(&mut self, new_value: T) {
+        self.v = new_value
+    }
+}
+
+pub struct PersonV2 {
+    name: String,
+    age: i32,
+}
+
+pub fn lessons() {
+    const function_fn: fn(i32) -> i32 = |x: i32| x + 1;
+}
+
+pub fn transform_number(x: i32, func: fn(i32) -> i32) {
+    func(x);
+}
+
+fn create_inc() -> fn(i32) -> i32 {
+    |x: i32| x + 1
+}
+
+pub fn simple_sum(x: i32) -> i32 {
+    x + 1
+}
+
+trait CanIntroduce<T> {
+    fn introduce(&self) -> T;
+}
+
+fn print_introduction<T>(v: &impl CanIntroduce<T>)
+where
+    T: Clone + Debug,
+{
+    println!("Value says: {:?}", v.introduce());
+}
+
+struct Person<T> {
+    pub name: T,
+}
+
+impl<T> CanIntroduce<T> for Person<T>
+where
+    T: Clone + Debug,
+{
+    fn introduce(&self) -> T
+    where
+        T: Clone + Debug,
+    {
+        self.name.clone()
+    }
+}
+
+pub fn test_transform() {
+    let x = 10;
+    let func: fn(i32) -> i32 = |x: i32| x + 1;
+
+    let b = transform_number(x, func);
+
+    let increment = create_inc();
+
+    let c = increment(x);
+
+    let new_func: fn(i32) -> i32 = simple_sum;
+
+    let number_array: Vec<i32> = vec![1, 2, 3, 4, 5];
+
+    print_introduction(&Person {
+        name: String::from("PIDARAS"),
+    });
+    // for i in number_array {}
+
+    // for i in number_array.iter() {}
+
+    // for i in number_array.into_iter() {}
+}
+
+// struct SessionId(String);
+
+// impl<S: Send + Sync> FromRequestParts<S> for SessionId {
+//     type Rejection = StatusCode;
+
+//     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+//         // ID сессии передаётся в заголовке sessionid
+//         // if let Some(value) = parts.headers.get("sessionid") {
+//         //     if let Ok(string_value) = value.to_str() {
+//         //         Ok(SessionId(string_value.to_string()))
+//         //     } else {
+//         //         Err(StatusCode::BAD_REQUEST)
+//         //     }
+//         // } else {
+//         //     Err(StatusCode::UNAUTHORIZED)
+//         // }
+
+//         let value = match parts.headers.get("sessiondid") {
+//             Some(v) => v,
+//             None => {
+//                 return 403;
+//             }
+//         };
+
+//         match value {
+//             Ok(v) => SessionId(string_value.to_string()),
+//             Err(e) => Err(400),
+//         }
+//     }
+// }
+
+fn make_greet_closure() -> impl Fn(&str) -> String {
+    let salutation = "Hello".to_string();
+    move |name: &str| make_greeting(&salutation, name)
+}
+
+fn make_greeting(s: &str, name: &str) -> String {
+    String::from("")
+}
+
+fn test_greeting() {
+    let closure = make_greet_closure();
+    closure("HUI");
+}
+
+fn print_string(v: &str) {
+    let array: [i32; 5] = [1, 2, 3, 4, 5];
+    println!("{v}")
+}
+
+#[derive(Debug)]
+struct Vector {
+    data: Box<[String]>,
+    capacity: usize,
+    len: usize,
+}
+
+impl Vector {
+    fn new() -> Self {
+        Self::with_capacity(0)
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        let vec: Vec<String> = vec![String::default(); capacity];
+        let slice = vec.into_boxed_slice();
+
+        Vector {
+            data: slice.clone(),
+            capacity,
+            len: 0,
+        }
+    }
+
+    fn push(&mut self, value: String) {
+        if self.len == self.capacity {
+            self.capacity = self.capacity * 2;
+            let new_vec: Vec<String> = vec![String::default(); self.capacity];
+            let mut slice: Box<[String]> = new_vec.into_boxed_slice();
+            std::mem::replace(&mut self.data, slice);
+        }
+
+        // self.set(self.len, value);
+        self.data[self.len] = value;
+        self.len = self.len + 1;
+    }
+
+    fn pop(&mut self) -> Option<String> {
+        if self.len == 0 {
+            return None;
+        }
+
+        let deleted_el = self.data[self.len - 1].clone();
+        //KOLEA PIDAR WANT TO REMOVE
+
+        self.data[self.len - 1] = String::default();
+        self.len -= 1;
+
+        Some(deleted_el)
+    }
+
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    fn get(&self, index: usize) -> Option<&String> {
+        if index > self.len() - 1 {
+            return None;
+        }
+
+        return Some(&self.data[index]);
+    }
+
+    fn set(&mut self, index: usize, value: String) -> bool {
+        if index > self.capacity - 1 {
+            return false;
+        }
+
+        self.data[index] = value;
+        true
+    }
+
+    fn map(&self, mapper: impl Fn(usize, &String) -> String) -> Vector {
+        let mut new_vector = Vector::with_capacity(self.capacity);
+
+        for (index, value) in self.data.iter().enumerate() {
+            let new_value = mapper(index, value);
+            new_vector.data[index] = new_value;
+        }
+
+        new_vector
+    }
+}
+
+fn main() {
+    let mut vector = Vector::with_capacity(10);
+
+    println!("{:?}", vector);
+    for v in (0..10000000) {
+        vector.push(format!("{v}"));
+    }
+
+    println!("{} . {}", vector.capacity, vector.len);
+
+    // let mapper: fn(usize, &String) -> String =
+    //     |index: usize, value: &String| format!("{index}:{value}");
+
+    // let new_formatted_vector = vector.map(mapper);
+
+    // println!("{:?}", new_formatted_vector);
+
+    let _ = redis::redis_server();
+}
+
+fn referrential_safety() {
+    let mut array: Vec<i32> = Vec::with_capacity(3);
+    array.push(1);
+    array.push(1);
+    array.push(3);
+
+    let reference: &i32 = &array[1];
+
+    let copy = &mut array;
+
+    copy.push(4);
+
+    let ssilka: *const i32;
+}
+
+fn lifetime_checker() {
+    let len = check_x_y("aaa", "bbbb");
+}
+
+fn check_x_y<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() > y.len() { x } else { y }
+}
+
+fn pattern_matching() {
+    let mut expression = 0;
+    match expression {
+        0..5 => println!(""),
+        1 => println!("A IS 1"),
+        0 => println!("A is )"),
+        x => println!("A IS DIFFERENT"),
+    }
+
+    match 10 + 15 {
+        x @ (1..=10) => println!(),
+        x @ (11..100) => println!(),
+        y => println!(),
+    }
+    let a = 10;
+    let virajenie = match a {
+        ..0 => -a,
+        0.. => a,
+    };
+
+    let name = String::from("ilia");
+
+    let is_ilia = match name.as_str() {
+        "ilia" => println!(),
+        not_ilia => println!("NOT ILIA"),
+    };
+
+    let v = vec![1, 2, 3, 4, 5, 6];
+    let sum = match &v[..] {
+        [] => 0,
+        [a, b, c] => a + b + c,
+        // [a..b] => a + b,
+        _ => -1,
+    };
+
+    let mut person = PersonV2 {
+        name: String::from("ILIA"),
+        age: 25,
+    };
+
+    match person {
+        _ => println!(),
+        PersonV2 { name, age: 1..18 } => println!(),
+        PersonV2 { name, age: 19.. } => println!(),
+    }
+
+    // match person {
+    //     PersonV2 { name, age } if age > 10 => println!(),
+    //     PersonV2 { name, age } if name.len() > 10 => println!(),
+    //     PersonV2 { name, age } if age < 10 => println!(),
+    //     _ => println!(),
+    // }
+
+    // let person_link = &mut person;
+    // person_link.name = String::from("new value");
+
+    // match &mut person {
+    //     abc => println!(),
+    // }
+
+    let anonim_func: fn(x: i32, y: i32) -> i32 = |x: i32, y: i32| x + y;
+}
+
+fn high_order_fund(z: i32, func: fn(x: i32, y: i32) -> i32) -> i32 {
+    z + func(z, z)
+}
+
+enum TestingEnum {
+    IPV4(u8, u8, u8, u8),
+    IPV6(String),
+}
+
+enum Shape {
+    Square { width: i32 },
+    Rectangle { width: i32 },
+}
+
+enum OptionV2<T> {
+    Some(T),
+    None,
+}
+
+enum ResultV2<T, E>
+where
+    E: Error,
+{
+    OK(T),
+    ERR(E),
+}
+
+fn enums() {
+    let square = Shape::Square { width: 10 };
+
+    if let Shape::Square { width } = square {
+        println!("IT IS SQUARE WITH WIDHT {width}")
+    }
+
+    let option_i32: OptionV2<i32> = OptionV2::Some(10);
+
+    let i: i32 = match option_i32 {
+        OptionV2::Some(value) => value,
+        OptionV2::None => 0,
+    };
+
+    let s1 = Some(10);
+    let s2 = s1.map(|value| value + 1);
+}
+
+fn iterators() {
+    let vec = vec![1, 2, 3, 4, 5, 6, 7, 8];
+    for i in vec.iter() {}
+
+    // for i in &vec {}
+
+    // for i in vec.into_iter() {}
+
+    // for i in vec {}
+
+    let mut range: Range<i32> = 0..20;
+
+    for i in 0..20 {}
+
+    let vec2 = vec
+        .into_iter()
+        .filter(|x| x % 2 == 0)
+        .map(|x| x * x)
+        .collect::<Vec<i32>>();
+}
+
+fn smart_pointers() {
+    let mut b = Box::new(100);
+    *b = 20;
+    increment(&mut b);
+
+    let rc1 = Rc::<i32>::new(10);
+    let rc2 = rc1.clone();
+
+    let cell1 = Cell::<i32>::new(20);
+    cell1.set(400);
+    cell1.replace(200);
+    cell1.get();
+
+    let combine = Rc::new(Cell::new(20));
+    combine.as_ref().set(20);
+}
+
+fn increment(i: &mut i32) {
+    *i += 1
+}
+
+struct User {
+    name: String,
+    ptr: *mut u32,
+}
+
+fn prove_send_trait<T>()
+where
+    T: Send + Sync,
+{
+}
+
+unsafe impl Send for User {}
+unsafe impl Sync for User {}
+
+fn multithreading() {
+    let t1 = spawn(|| 1);
+    let t2 = spawn(|| 2);
+    let sum = t1.join().unwrap() + t2.join().unwrap();
+
+    let t3 = spawn(smart_pointers);
+
+    let builder = Builder::new()
+        .stack_size(8192)
+        .name("name".to_string())
+        .spawn(|| println!("thread name: {:?}", std::thread::current().name()))
+        .unwrap();
+
+    let _ = builder.join();
+
+    let user = Box::new("Ilia Posmac".to_string());
+    let user_spawn = spawn(move || println!("{user}"));
+    let _ = user_spawn.join();
+
+    prove_send_trait::<User>();
+
+    static string: RwLock<String> = RwLock::new(String::new());
+    let s1 = &string;
+    let s2 = &string;
+
+    let st1 = spawn(move || println!("{:?}", s1));
+    let st2 = spawn(move || println!("{:?}", s2));
+
+    st1.join();
+    st2.join();
+}
+
+type Link<T> = Option<Rc<RefCell<ListNode<T>>>>;
+
+struct ListNode<T> {
+    prev: Option<Weak<RefCell<ListNode<T>>>>,
+    next: Link<T>,
+    data: T,
+}
+
+struct LinkedList<T> {
+    head: Link<T>,
+    tail: Link<T>,
+    len: i32,
+}
+
+impl<T> LinkedList<T> {
+    pub fn new() -> Self {
+        LinkedList {
+            head: Option::None,
+            tail: Option::None,
+            len: 0,
+        }
+    }
+
+    pub fn push_back(&mut self, data: T) {
+        let new_node = Rc::new(RefCell::new(ListNode {
+            data,
+            prev: None,
+            next: None,
+        }));
+
+        match self.tail.take() {
+            Some(old_tail) => {
+                new_node.borrow_mut().prev = Some(Rc::downgrade(&old_tail));
+                old_tail.borrow_mut().next = Some(new_node.clone());
+                self.tail = Some(new_node);
+            }
+            None => {
+                self.head = Some(new_node.clone());
+                self.tail = Some(new_node);
+            }
+        }
+
+        self.len += 1;
+    }
+
+    pub fn push_front(&mut self, data: T) {
+        let new_node = Rc::new(RefCell::new(ListNode {
+            data,
+            next: None,
+            prev: None,
+        }));
+
+        match self.head.take() {
+            Some(old_head) => {
+                old_head.borrow_mut().prev = Some(Rc::downgrade(&old_head));
+                new_node.borrow_mut().next = Some(old_head);
+                self.head = Some(new_node);
+            }
+            None => {
+                self.head = Some(new_node.clone());
+                self.tail = Some(new_node);
+            }
+        }
+
+        self.len += 1;
+    }
+}
+
+impl<T> Drop for LinkedList<T> {
+    fn drop(&mut self) {
+        // while self.pop().is_some() {}
+    }
+}
