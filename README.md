@@ -25,20 +25,20 @@ This project isn't just a wrapper; it's a deep-dive into the internals of Redis:
 ---
 ## Progress
 
-- Completed up to **Chapter 8** of the BYOR guide  
+- Completed up to **Chapter 7** of the BYOR guide  
 - Implemented so far:
   - TCP server ✅
   - Protocol ✅  
   - Basic GET / SET commands ✅  
-  - Hash Map storage logic ✅  
+
  
 ---
 ## TODO
 
 - ✅ TCP server  
 - ✅ Basic GET / SET / DEL 
-- ✅ Hash Map logic  
-- ✅ Key/value serialization
+- ⬜ Hash Map logic  
+- ⬜ Key/value serialization
 - ⬜ Improve DEL command
 - ⬜ Improve Set operations  
 - ⬜ Add B-Tree for ordered data  
